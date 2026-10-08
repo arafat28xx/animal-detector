@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import type { Category, Candidate } from "./types";
 
-const VisionAnswer = z.object({
+export const VisionAnswer = z.object({
   kind: z.enum(["animal", "plant", "fungus", "other", "none"]),
   scientificName: z.string(),
   commonName: z.string(),
@@ -31,7 +31,7 @@ const VisionAnswer = z.object({
 
 export type VisionAnswer = z.infer<typeof VisionAnswer>;
 
-const SYSTEM = `You identify animals, plants and fungi from photos for a nature app.
+export const SYSTEM = `You identify animals, plants and fungi from photos for a nature app.
 Return the most specific taxon you can support from what is visible: species if you are confident, otherwise genus or family. Never invent a scientific name; use accepted binomial names.
 confidence is your honest probability (0 to 1) that scientificName is correct. Give up to 3 alternatives that look similar.
 If no living organism is visible, set kind to "none" and leave the text fields empty.

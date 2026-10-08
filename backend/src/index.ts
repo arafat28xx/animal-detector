@@ -1,11 +1,15 @@
 import { identifyWithClaude } from "./claude";
 import { identifyPlant, matchGbif, wikipediaSummary } from "./sources";
+import { identifyWithWorkersAI } from "./workersai";
 import type { Candidate, Category, IdentifyResponse, IdentifyResult } from "./types";
 
 interface Env {
-  ANTHROPIC_API_KEY: string;
+  /** Optional. Without it the free Workers AI model is used instead of Claude. */
+  ANTHROPIC_API_KEY?: string;
   PLANTNET_API_KEY?: string;
   CLAUDE_MODEL: string;
+  WORKERS_AI_MODEL: string;
+  AI: Ai;
 }
 
 // About 6 MB of JPEG once decoded; the app sends ~1 MB.
@@ -52,15 +56,23 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
     plantNetHints = await identifyPlant(env.PLANTNET_API_KEY, bytes).catch(() => []);
   }
 
-  const answer = await identifyWithClaude({
-    apiKey: env.ANTHROPIC_API_KEY,
-    model: env.CLAUDE_MODEL,
-    imageBase64,
-    category,
-    plantNetHints,
-  });
+  const answer = env.ANTHROPIC_API_KEY
+    ? await identifyWithClaude({
+        apiKey: env.ANTHROPIC_API_KEY,
+        model: env.CLAUDE_MODEL,
+        imageBase64,
+        category,
+        plantNetHints,
+      })
+    : await identifyWithWorkersAI({
+        ai: env.AI,
+        model: env.WORKERS_AI_MODEL,
+        imageBase64,
+        category,
+        plantNetHints,
+      });
 
-  const sources = ["Claude (AI)"];
+  const sources = [env.ANTHROPIC_API_KEY ? "Claude (AI)" : "Gemma (AI)"];
   if (plantNetHints.length > 0) sources.push("Pl@ntNet");
 
   const base: IdentifyResult = {

@@ -3,10 +3,15 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
+[ai]
+binding = "AI"
+
 [vars]
 # Model used to identify photos and write the species info.
 CLAUDE_MODEL = "claude-opus-5-5"
+# Free fallback model on Cloudflare Workers AI, used when ANTHROPIC_API_KEY is not set.
+WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 
 # Secrets (set with `npx wrangler secret put NAME`, never commit them):
-#   ANTHROPIC_API_KEY  - required
+#   ANTHROPIC_API_KEY  - optional; set it to use Claude (more accurate) instead of the free model
 #   PLANTNET_API_KEY   - optional, improves plant accuracy
