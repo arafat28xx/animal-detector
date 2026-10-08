@@ -16,6 +16,9 @@ interface Env {
 const MAX_BASE64_LENGTH = 8_000_000;
 // The app gives up after 45 s, so answer with an error before that rather than hang.
 const AI_TIMEOUT_MS = 40_000;
+// The free model occasionally stalls for a minute or more. If it hasn't answered
+// by then, send a second identical request and use whichever finishes first.
+const HEDGE_AFTER_MS = 15_000;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -67,13 +70,17 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
           category,
           plantNetHints,
         })
-      : identifyWithWorkersAI({
-          ai: env.AI,
-          model: env.WORKERS_AI_MODEL,
-          imageBase64,
-          category,
-          plantNetHints,
-        }),
+      : hedged(
+          () =>
+            identifyWithWorkersAI({
+              ai: env.AI,
+              model: env.WORKERS_AI_MODEL,
+              imageBase64,
+              category,
+              plantNetHints,
+            }),
+          HEDGE_AFTER_MS,
+        ),
     AI_TIMEOUT_MS,
   );
 
@@ -134,6 +141,35 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
     sources.push("Wikipedia");
   }
   return base;
+}
+
+function hedged<T>(run: () => Promise<T>, delayMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let failures = 0;
+    let attempts = 0;
+    let settled = false;
+    const start = () => {
+      attempts++;
+      run().then(
+        (value) => {
+          settled = true;
+          resolve(value);
+        },
+        (err) => {
+          failures++;
+          // Retry at once if the first attempt failed before the backup started.
+          if (attempts === 1) {
+            clearTimeout(timer);
+            start();
+          } else if (failures === attempts) {
+            reject(err);
+          }
+        },
+      );
+    };
+    const timer = setTimeout(() => !settled && attempts === 1 && start(), delayMs);
+    start();
+  });
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
