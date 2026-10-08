@@ -14,6 +14,8 @@ interface Env {
 
 // About 6 MB of JPEG once decoded; the app sends ~1 MB.
 const MAX_BASE64_LENGTH = 8_000_000;
+// The app gives up after 45 s, so answer with an error before that rather than hang.
+const AI_TIMEOUT_MS = 40_000;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -56,21 +58,24 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
     plantNetHints = await identifyPlant(env.PLANTNET_API_KEY, bytes).catch(() => []);
   }
 
-  const answer = env.ANTHROPIC_API_KEY
-    ? await identifyWithClaude({
-        apiKey: env.ANTHROPIC_API_KEY,
-        model: env.CLAUDE_MODEL,
-        imageBase64,
-        category,
-        plantNetHints,
-      })
-    : await identifyWithWorkersAI({
-        ai: env.AI,
-        model: env.WORKERS_AI_MODEL,
-        imageBase64,
-        category,
-        plantNetHints,
-      });
+  const answer = await withTimeout(
+    env.ANTHROPIC_API_KEY
+      ? identifyWithClaude({
+          apiKey: env.ANTHROPIC_API_KEY,
+          model: env.CLAUDE_MODEL,
+          imageBase64,
+          category,
+          plantNetHints,
+        })
+      : identifyWithWorkersAI({
+          ai: env.AI,
+          model: env.WORKERS_AI_MODEL,
+          imageBase64,
+          category,
+          plantNetHints,
+        }),
+    AI_TIMEOUT_MS,
+  );
 
   const sources = [env.ANTHROPIC_API_KEY ? "Claude (AI)" : "Gemma (AI)"];
   if (plantNetHints.length > 0) sources.push("Pl@ntNet");
@@ -123,6 +128,14 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
     sources.push("Wikipedia");
   }
   return base;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Identification timed out after ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 function clamp01(n: number): number {
