@@ -27,7 +27,7 @@ cd backend && npm install && cd ..
 
 ### 2. Start the backend
 
-1. Get a Claude API key at https://console.anthropic.com (Settings → API Keys).
+1. Optional: get a Claude API key at https://console.anthropic.com (Settings → API Keys). Without one, the backend uses a free vision model on Cloudflare Workers AI (`WORKERS_AI_MODEL` in `backend/wrangler.toml`). It costs nothing but is less accurate. Setting `ANTHROPIC_API_KEY` switches to Claude with no code change.
 2. Optional: get a free Pl@ntNet key at https://my.plantnet.org for better plant results.
 3. Copy `backend/.dev.vars.example` to `backend/.dev.vars` and paste your keys in.
 4. Run it on your computer:
@@ -44,7 +44,7 @@ To put it online (free Cloudflare account):
 ```bash
 cd backend
 npx wrangler login
-npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put ANTHROPIC_API_KEY   # optional, switches from the free model to Claude
 npx wrangler secret put PLANTNET_API_KEY   # optional
 npm run deploy
 ```
