@@ -1,0 +1,12 @@
+name = "animal-detector-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Model used to identify photos and write the species info.
+CLAUDE_MODEL = "claude-opus-5-5"
+
+# Secrets (set with `npx wrangler secret put NAME`, never commit them):
+#   ANTHROPIC_API_KEY  - required
+#   PLANTNET_API_KEY   - optional, improves plant accuracy
