@@ -18,7 +18,7 @@ const MAX_BASE64_LENGTH = 8_000_000;
 const AI_TIMEOUT_MS = 40_000;
 // The free model occasionally stalls for a minute or more. If it hasn't answered
 // by then, send a second identical request and use whichever finishes first.
-const HEDGE_AFTER_MS = 15_000;
+const HEDGE_AFTER_MS = 12_000;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -124,7 +124,11 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
 
   const [gbif, wiki] = await Promise.all([
     matchGbif(answer.scientificName).catch(() => null),
-    wikipediaSummary(answer.scientificName).catch(() => null),
+    // Cultivated varieties (e.g. bok choy) often have no page under the
+    // scientific name, so fall back to the common name.
+    wikipediaSummary(answer.scientificName)
+      .then((w) => w ?? (answer.commonName ? wikipediaSummary(answer.commonName) : null))
+      .catch(() => null),
   ]);
 
   if (gbif) {

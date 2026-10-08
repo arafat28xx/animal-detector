@@ -5,7 +5,34 @@ import type { Candidate, Category } from "./types";
 // Free alternative to Claude: a vision model on Cloudflare Workers AI.
 // Used when no ANTHROPIC_API_KEY is set. Less accurate, but costs nothing
 // within the Workers AI free daily allowance.
-const RESPONSE_SCHEMA = z.toJSONSchema(VisionAnswer);
+const RESPONSE_SCHEMA = JSON.stringify(z.toJSONSchema(VisionAnswer));
+
+// Strict json_schema mode makes Gemma loop on whitespace until it times out,
+// so ask for plain JSON and tolerate missing or mistyped fields instead.
+const str = z.string().catch("");
+const num = z.number().catch(0);
+const bool = z.boolean().catch(false);
+const LenientAnswer = z.object({
+  kind: VisionAnswer.shape.kind.catch("other"),
+  scientificName: str,
+  commonName: str,
+  confidence: num,
+  alternatives: z
+    .array(z.object({ scientificName: str, commonName: str, confidence: num }))
+    .catch([]),
+  description: str,
+  habitat: str,
+  nativeRange: str,
+  size: str,
+  diet: str,
+  lifespan: str,
+  conservationStatus: str,
+  venomous: bool,
+  toxic: bool,
+  invasive: bool,
+  safetyNotes: str,
+  funFacts: z.array(z.string()).catch([]),
+});
 
 export async function identifyWithWorkersAI(opts: {
   ai: Ai;
@@ -26,15 +53,16 @@ export async function identifyWithWorkersAI(opts: {
   }
 
   const response = (await opts.ai.run(opts.model as keyof AiModels, {
-    max_tokens: 4000,
+    // A full answer is ~600 tokens; the cap stops a runaway answer early.
+    max_tokens: 1500,
     // Thinking roughly triples response time for little gain on this task.
     chat_template_kwargs: { enable_thinking: false },
-    response_format: {
-      type: "json_schema",
-      json_schema: { name: "identification", schema: RESPONSE_SCHEMA, strict: true },
-    },
+    response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: SYSTEM },
+      {
+        role: "system",
+        content: `${SYSTEM}\nReply with one JSON object matching this JSON Schema:\n${RESPONSE_SCHEMA}`,
+      },
       {
         role: "user",
         content: [
@@ -50,8 +78,8 @@ export async function identifyWithWorkersAI(opts: {
 
   const raw = response.choices?.[0]?.message?.content ?? response.response;
   const parsed = typeof raw === "string" ? JSON.parse(stripFences(raw)) : raw;
-  const result = VisionAnswer.safeParse(parsed);
-  if (!result.success) {
+  const result = LenientAnswer.safeParse(parsed);
+  if (!result.success || (!result.data.scientificName && result.data.kind !== "none")) {
     throw new Error("The identification service returned an unexpected answer.");
   }
   return result.data;
