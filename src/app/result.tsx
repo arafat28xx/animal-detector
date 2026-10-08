@@ -172,17 +172,17 @@ export default function ResultScreen() {
 
       {result.funFacts.length > 0 && (
         <Section title="Did you know?" theme={theme}>
-          {result.funFacts.map((fact) => (
-            <Text key={fact} style={[styles.body, { color: theme.text }]}>• {fact}</Text>
+          {result.funFacts.map((fact, i) => (
+            <Text key={i} style={[styles.body, { color: theme.text }]}>• {fact}</Text>
           ))}
         </Section>
       )}
 
       {result.alternatives.length > 0 && (
         <Section title="Could also be" theme={theme}>
-          {result.alternatives.map((alt) => (
+          {result.alternatives.map((alt, i) => (
             <Row
-              key={alt.scientificName}
+              key={`${i}-${alt.scientificName}`}
               label={alt.commonName || alt.scientificName}
               value={`${alt.scientificName} · ${Math.round(alt.confidence * 100)}%`}
               theme={theme}

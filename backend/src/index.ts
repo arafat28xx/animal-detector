@@ -86,6 +86,12 @@ async function identify(env: Env, imageBase64: string, category: Category): Prom
     commonName: answer.commonName,
     confidence: clamp01(answer.confidence),
     alternatives: answer.alternatives
+      // Small models sometimes repeat the main answer or the same name twice.
+      .filter(
+        (a, i, all) =>
+          a.scientificName !== answer.scientificName &&
+          all.findIndex((b) => b.scientificName === a.scientificName) === i,
+      )
       .slice(0, 3)
       .map((a) => ({ ...a, confidence: clamp01(a.confidence) })),
     taxonomy: {},
