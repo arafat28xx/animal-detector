@@ -27,6 +27,8 @@ export async function identifyWithWorkersAI(opts: {
 
   const response = (await opts.ai.run(opts.model as keyof AiModels, {
     max_tokens: 4000,
+    // Thinking roughly triples response time for little gain on this task.
+    chat_template_kwargs: { enable_thinking: false },
     response_format: {
       type: "json_schema",
       json_schema: { name: "identification", schema: RESPONSE_SCHEMA, strict: true },
